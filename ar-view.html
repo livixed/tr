@@ -1,0 +1,157 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AR Model Viewer with Pose Detection</title>
+
+    <!-- Подключение библиотек -->
+    <script type="module" src="https://unpkg.com/@google/model-viewer/dist/model-viewer.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@tensorflow-models/posenet"></script>
+
+    <style>
+        /* Стили для model-viewer */
+        model-viewer {
+            width: 100%;
+            height: 100vh;
+            background-color: transparent;
+        }
+
+        /* Контейнер для видео */
+        #videoContainer {
+            display: none; /* Скрываем по умолчанию */
+            position: relative;
+            width: 100%;
+            height: 100vh;
+            overflow: hidden;
+        }
+
+        #videoFeed {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+        }
+
+        /* Сообщение обратной связи */
+        #feedback {
+            position: absolute;
+            bottom: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            padding: 10px 20px;
+            font-size: 16px;
+            color: white;
+            background-color: rgba(0, 0, 0, 0.7);
+            border-radius: 5px;
+            text-align: center;
+            z-index: 10;
+        }
+    </style>
+</head>
+<body>
+
+    <!-- Модель -->
+    <model-viewer 
+        id="modelViewer"
+        src="prised2.glb" 
+        ios-src="path/to/your-model.usdz" 
+        ar 
+        ar-modes="webxr scene-viewer quick-look" 
+        camera-controls 
+        auto-rotate 
+        shadow-intensity="1"
+        xr-environment 
+        ar-placement="floor" 
+        ar-scale="auto" 
+        animation-name="" 
+        autoplay="">
+    </model-viewer>
+
+    <!-- Видео с пользователем -->
+    <div id="videoContainer">
+        <video id="videoFeed" autoplay playsinline></video>
+        <div id="feedback">Подготовьтесь к выполнению упражнения...</div>
+    </div>
+
+    <script>
+        // Получаем элементы DOM
+        const modelViewer = document.getElementById('modelViewer');
+        const videoContainer = document.getElementById('videoContainer');
+        const videoFeed = document.getElementById('videoFeed');
+        const feedback = document.getElementById('feedback');
+
+        // Параметры модели
+        const referencePose = {
+            keypoints: [
+                { part: 'leftShoulder', position: { x: 0.4, y: 0.3 } },
+                { part: 'rightShoulder', position: { x: 0.6, y: 0.3 } },
+                { part: 'leftElbow', position: { x: 0.3, y: 0.5 } },
+                { part: 'rightElbow', position: { x: 0.7, y: 0.5 } }
+            ]
+        };
+
+        // Загрузка PoseNet
+        let posenetModel;
+
+        async function loadPoseNet() {
+            posenetModel = await posenet.load();
+            console.log('PoseNet загружен.');
+        }
+
+        // Функция для сравнения поз
+        function comparePoses(userPose, referencePose) {
+            const tolerance = 0.1; // Допустимая погрешность
+            let correct = true;
+
+            referencePose.keypoints.forEach(refPoint => {
+                const userPoint = userPose.keypoints.find(p => p.part === refPoint.part);
+                if (!userPoint) return;
+
+                const dx = Math.abs(userPoint.position.x - refPoint.position.x);
+                const dy = Math.abs(userPoint.position.y - refPoint.position.y);
+
+                if (dx > tolerance || dy > tolerance) {
+                    correct = false;
+                }
+            });
+
+            return correct;
+        }
+
+        // Основной цикл
+        async function startExercise() {
+            // Показываем модель в течение 10 секунд
+            await new Promise(resolve => setTimeout(resolve, 10000));
+
+            // Скрываем модель и активируем видеопоток
+            modelViewer.style.display = 'none';
+            videoContainer.style.display = 'block';
+
+            // Запускаем видеопоток
+            const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'user' } });
+            videoFeed.srcObject = stream;
+
+            // Анализ позы
+            setInterval(async () => {
+                const pose = await posenetModel.estimateSinglePose(videoFeed, {
+                    flipHorizontal: true
+                });
+
+                const isCorrect = comparePoses(pose, referencePose);
+
+                if (isCorrect) {
+                    feedback.textContent = 'Выполняете правильно!';
+                } else {
+                    feedback.textContent = 'Исправьте положение рук или плеч.';
+                }
+            }, 1000); // Обновляем каждую секунду
+        }
+
+        // Загружаем PoseNet и запускаем упражнение
+        loadPoseNet().then(() => {
+            startExercise();
+        });
+    </script>
+</body>
+</html>
