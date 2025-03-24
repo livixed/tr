@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Приседание с AR и Pose Detection</title>
+    <title>AR Model Viewer with Pose Detection</title>
 
     <!-- Подключение библиотек -->
     <script type="module" src="https://unpkg.com/@google/model-viewer/dist/model-viewer.min.js"></script>
@@ -71,7 +71,7 @@
     <!-- Видео с пользователем -->
     <div id="videoContainer">
         <video id="videoFeed" autoplay playsinline></video>
-        <div id="feedback">Подготовьтесь к выполнению приседания...</div>
+        <div id="feedback">Подготовьтесь к выполнению упражнения...</div>
     </div>
 
     <script>
@@ -81,15 +81,13 @@
         const videoFeed = document.getElementById('videoFeed');
         const feedback = document.getElementById('feedback');
 
-        // Эталонная поза для приседания
+        // Параметры модели
         const referencePose = {
             keypoints: [
-                { part: 'leftShoulder', position: { y: 0.3 } }, // Левое плечо
-                { part: 'rightShoulder', position: { y: 0.3 } }, // Правое плечо
-                { part: 'leftHip', position: { y: 0.6 } }, // Левое бедро
-                { part: 'rightHip', position: { y: 0.6 } }, // Правое бедро
-                { part: 'leftKnee', position: { y: 0.8 } }, // Левое колено
-                { part: 'rightKnee', position: { y: 0.8 } }  // Правое колено
+                { part: 'leftShoulder', position: { x: 0.4, y: 0.3 } },
+                { part: 'rightShoulder', position: { x: 0.6, y: 0.3 } },
+                { part: 'leftElbow', position: { x: 0.3, y: 0.5 } },
+                { part: 'rightElbow', position: { x: 0.7, y: 0.5 } }
             ]
         };
 
@@ -110,9 +108,10 @@
                 const userPoint = userPose.keypoints.find(p => p.part === refPoint.part);
                 if (!userPoint) return;
 
+                const dx = Math.abs(userPoint.position.x - refPoint.position.x);
                 const dy = Math.abs(userPoint.position.y - refPoint.position.y);
 
-                if (dy > tolerance) {
+                if (dx > tolerance || dy > tolerance) {
                     correct = false;
                 }
             });
@@ -142,9 +141,9 @@
                 const isCorrect = comparePoses(pose, referencePose);
 
                 if (isCorrect) {
-                    feedback.textContent = 'Выполняете приседание правильно!';
+                    feedback.textContent = 'Выполняете правильно!';
                 } else {
-                    feedback.textContent = 'Опустите бедра ниже или согните колени.';
+                    feedback.textContent = 'Исправьте положение рук или плеч.';
                 }
             }, 1000); // Обновляем каждую секунду
         }
