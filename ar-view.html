@@ -94,32 +94,12 @@
         const debugCanvas = document.getElementById('debugCanvas');
         const ctx = debugCanvas.getContext('2d');
 
-        // Эталонная поза для приседания
-        const referencePose = {
-            keypoints: [
-                { part: 'leftShoulder', position: { y: 0.3 } }, // Левое плечо
-                { part: 'rightShoulder', position: { y: 0.3 } }, // Правое плечо
-                { part: 'leftHip', position: { y: 0.6 } }, // Левое бедро
-                { part: 'rightHip', position: { y: 0.6 } }, // Правое бедро
-                { part: 'leftKnee', position: { y: 0.8 } }, // Левое колено
-                { part: 'rightKnee', position: { y: 0.8 } }  // Правое колено
-            ]
-        };
-
         // Загрузка PoseNet
         let posenetModel;
 
         async function loadPoseNet() {
             posenetModel = await posenet.load();
             console.log('PoseNet загружен.');
-        }
-
-        // Функция для расчета угла между тремя точками
-        function calculateAngle(a, b, c) {
-            const radians = Math.atan2(c.y - b.y, c.x - b.x) - Math.atan2(a.y - b.y, a.x - b.x);
-            let angle = Math.abs(radians * (180 / Math.PI));
-            if (angle > 180) angle = 360 - angle;
-            return angle;
         }
 
         // Отрисовка скелета
@@ -186,6 +166,7 @@
             videoFeed.onloadedmetadata = () => {
                 debugCanvas.width = videoFeed.videoWidth;
                 debugCanvas.height = videoFeed.videoHeight;
+                console.log('Canvas size:', debugCanvas.width, debugCanvas.height);
             };
 
             // Анализ позы
@@ -194,30 +175,11 @@
                     flipHorizontal: true
                 });
 
+                console.log('PoseNet keypoints:', pose.keypoints);
+
                 // Отрисовка скелета
                 drawSkeleton(pose);
-
-                // Расчет углов
-                const leftHip = pose.keypoints.find(p => p.part === 'leftHip')?.position;
-                const leftKnee = pose.keypoints.find(p => p.part === 'leftKnee')?.position;
-                const leftAnkle = pose.keypoints.find(p => p.part === 'leftAnkle')?.position;
-
-                const rightHip = pose.keypoints.find(p => p.part === 'rightHip')?.position;
-                const rightKnee = pose.keypoints.find(p => p.part === 'rightKnee')?.position;
-                const rightAnkle = pose.keypoints.find(p => p.part === 'rightAnkle')?.position;
-
-                if (leftHip && leftKnee && leftAnkle) {
-                    const leftKneeAngle = calculateAngle(leftHip, leftKnee, leftAnkle);
-                    console.log('Left Knee Angle:', leftKneeAngle);
-                    feedback.textContent = `Угол в левом колене: ${Math.round(leftKneeAngle)}°`;
-                }
-
-                if (rightHip && rightKnee && rightAnkle) {
-                    const rightKneeAngle = calculateAngle(rightHip, rightKnee, rightAnkle);
-                    console.log('Right Knee Angle:', rightKneeAngle);
-                    feedback.textContent += ` | Угол в правом колене: ${Math.round(rightKneeAngle)}°`;
-                }
-            }, 1000); // Обновляем каждую секунду
+            }, 1000);
         }
 
         // Загружаем PoseNet и запускаем упражнение
