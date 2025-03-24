@@ -1,4 +1,3 @@
-
 <!DOCTYPE html>
 <html lang="ru">
 <head>
@@ -9,6 +8,33 @@
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
 </head>
 <body>
+  <!-- Модальное окно выбора пола -->
+  <div id="genderModal" class="modal">
+    <div class="modal-content">
+      <h2>Выберите ваш пол</h2>
+      <div class="gender-options">
+        <button class="gender-button" data-gender="male">Мужской</button>
+        <button class="gender-button" data-gender="female">Женский</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Модальное окно регистрации -->
+  <div id="registrationModal" class="modal" style="display: none;">
+    <div class="modal-content">
+      <h2>Регистрация</h2>
+      <form id="registrationForm">
+        <label for="username">Имя:</label>
+        <input type="text" id="username" name="username" required>
+        
+        <label for="password">Пароль:</label>
+        <input type="password" id="password" name="password" required>
+        
+        <button type="submit">Зарегистрироваться</button>
+      </form>
+    </div>
+  </div>
+
   <header class="header">
     <div class="header-container">
       <div class="header-left">
@@ -17,9 +43,9 @@
         </div>
         <h1 class="header-title">Fitness AR</h1>
       </div>
-      <button class="header-menu-button">
-        <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="3" y1="12" x2="21" y2="12"></line><line x1="3" y1="6" x2="21" y2="6"></line><line x1="3" y1="18" x2="21" y2="18"></line></svg>
-      </button>
+      <nav class="header-menu">
+        <a href="profile.html" class="nav-link">Профиль</a>
+      </nav>
     </div>
   </header>
 
