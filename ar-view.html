@@ -102,6 +102,14 @@
             console.log('PoseNet загружен.');
         }
 
+        // Функция для пересчета координат
+        function scaleCoordinates(point, videoWidth, videoHeight, canvasWidth, canvasHeight) {
+            return {
+                x: (point.x / videoWidth) * canvasWidth,
+                y: (point.y / videoHeight) * canvasHeight
+            };
+        }
+
         // Отрисовка скелета
         function drawSkeleton(pose) {
             ctx.clearRect(0, 0, debugCanvas.width, debugCanvas.height);
@@ -109,9 +117,16 @@
             // Рисуем точки
             pose.keypoints.forEach(keypoint => {
                 if (keypoint.score > 0.5) {
-                    const { x, y } = keypoint.position;
+                    const scaledPosition = scaleCoordinates(
+                        keypoint.position,
+                        videoFeed.videoWidth,
+                        videoFeed.videoHeight,
+                        debugCanvas.width,
+                        debugCanvas.height
+                    );
+
                     ctx.beginPath();
-                    ctx.arc(x, y, 5, 0, 2 * Math.PI);
+                    ctx.arc(scaledPosition.x, scaledPosition.y, 5, 0, 2 * Math.PI);
                     ctx.fillStyle = 'red';
                     ctx.fill();
                     ctx.closePath();
@@ -119,7 +134,7 @@
                     // Выводим название точки
                     ctx.font = '12px Arial';
                     ctx.fillStyle = 'white';
-                    ctx.fillText(keypoint.part, x + 10, y);
+                    ctx.fillText(keypoint.part, scaledPosition.x + 10, scaledPosition.y);
                 }
             });
 
@@ -138,9 +153,24 @@
                 const pointB = pose.keypoints.find(p => p.part === b)?.position;
 
                 if (pointA && pointB) {
+                    const scaledA = scaleCoordinates(
+                        pointA,
+                        videoFeed.videoWidth,
+                        videoFeed.videoHeight,
+                        debugCanvas.width,
+                        debugCanvas.height
+                    );
+                    const scaledB = scaleCoordinates(
+                        pointB,
+                        videoFeed.videoWidth,
+                        videoFeed.videoHeight,
+                        debugCanvas.width,
+                        debugCanvas.height
+                    );
+
                     ctx.beginPath();
-                    ctx.moveTo(pointA.x, pointA.y);
-                    ctx.lineTo(pointB.x, pointB.y);
+                    ctx.moveTo(scaledA.x, scaledA.y);
+                    ctx.lineTo(scaledB.x, scaledB.y);
                     ctx.strokeStyle = 'blue';
                     ctx.lineWidth = 2;
                     ctx.stroke();
