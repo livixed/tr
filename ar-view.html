@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>AR Model Viewer with Pose Detection</title>
+    <title>Приседание с AR и Pose Detection</title>
 
     <!-- Подключение библиотек -->
     <script type="module" src="https://unpkg.com/@google/model-viewer/dist/model-viewer.min.js"></script>
@@ -47,6 +47,16 @@
             text-align: center;
             z-index: 10;
         }
+
+        /* Холст для рисования */
+        canvas {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: 10;
+        }
     </style>
 </head>
 <body>
@@ -71,7 +81,8 @@
     <!-- Видео с пользователем -->
     <div id="videoContainer">
         <video id="videoFeed" autoplay playsinline></video>
-        <div id="feedback">Подготовьтесь к выполнению упражнения...</div>
+        <canvas id="debugCanvas"></canvas>
+        <div id="feedback">Подготовьтесь к выполнению приседания...</div>
     </div>
 
     <script>
@@ -80,14 +91,18 @@
         const videoContainer = document.getElementById('videoContainer');
         const videoFeed = document.getElementById('videoFeed');
         const feedback = document.getElementById('feedback');
+        const debugCanvas = document.getElementById('debugCanvas');
+        const ctx = debugCanvas.getContext('2d');
 
-        // Параметры модели
+        // Эталонная поза для приседания
         const referencePose = {
             keypoints: [
-                { part: 'leftShoulder', position: { x: 0.4, y: 0.3 } },
-                { part: 'rightShoulder', position: { x: 0.6, y: 0.3 } },
-                { part: 'leftElbow', position: { x: 0.3, y: 0.5 } },
-                { part: 'rightElbow', position: { x: 0.7, y: 0.5 } }
+                { part: 'leftShoulder', position: { y: 0.3 } }, // Левое плечо
+                { part: 'rightShoulder', position: { y: 0.3 } }, // Правое плечо
+                { part: 'leftHip', position: { y: 0.6 } }, // Левое бедро
+                { part: 'rightHip', position: { y: 0.6 } }, // Правое бедро
+                { part: 'leftKnee', position: { y: 0.8 } }, // Левое колено
+                { part: 'rightKnee', position: { y: 0.8 } }  // Правое колено
             ]
         };
 
@@ -99,24 +114,59 @@
             console.log('PoseNet загружен.');
         }
 
-        // Функция для сравнения поз
-        function comparePoses(userPose, referencePose) {
-            const tolerance = 0.1; // Допустимая погрешность
-            let correct = true;
+        // Функция для расчета угла между тремя точками
+        function calculateAngle(a, b, c) {
+            const radians = Math.atan2(c.y - b.y, c.x - b.x) - Math.atan2(a.y - b.y, a.x - b.x);
+            let angle = Math.abs(radians * (180 / Math.PI));
+            if (angle > 180) angle = 360 - angle;
+            return angle;
+        }
 
-            referencePose.keypoints.forEach(refPoint => {
-                const userPoint = userPose.keypoints.find(p => p.part === refPoint.part);
-                if (!userPoint) return;
+        // Отрисовка скелета
+        function drawSkeleton(pose) {
+            ctx.clearRect(0, 0, debugCanvas.width, debugCanvas.height);
 
-                const dx = Math.abs(userPoint.position.x - refPoint.position.x);
-                const dy = Math.abs(userPoint.position.y - refPoint.position.y);
+            // Рисуем точки
+            pose.keypoints.forEach(keypoint => {
+                if (keypoint.score > 0.5) {
+                    const { x, y } = keypoint.position;
+                    ctx.beginPath();
+                    ctx.arc(x, y, 5, 0, 2 * Math.PI);
+                    ctx.fillStyle = 'red';
+                    ctx.fill();
+                    ctx.closePath();
 
-                if (dx > tolerance || dy > tolerance) {
-                    correct = false;
+                    // Выводим название точки
+                    ctx.font = '12px Arial';
+                    ctx.fillStyle = 'white';
+                    ctx.fillText(keypoint.part, x + 10, y);
                 }
             });
 
-            return correct;
+            // Рисуем линии между точками
+            const pairs = [
+                ['leftShoulder', 'leftHip'],
+                ['leftHip', 'leftKnee'],
+                ['leftKnee', 'leftAnkle'],
+                ['rightShoulder', 'rightHip'],
+                ['rightHip', 'rightKnee'],
+                ['rightKnee', 'rightAnkle']
+            ];
+
+            pairs.forEach(([a, b]) => {
+                const pointA = pose.keypoints.find(p => p.part === a)?.position;
+                const pointB = pose.keypoints.find(p => p.part === b)?.position;
+
+                if (pointA && pointB) {
+                    ctx.beginPath();
+                    ctx.moveTo(pointA.x, pointA.y);
+                    ctx.lineTo(pointB.x, pointB.y);
+                    ctx.strokeStyle = 'blue';
+                    ctx.lineWidth = 2;
+                    ctx.stroke();
+                    ctx.closePath();
+                }
+            });
         }
 
         // Основной цикл
@@ -132,18 +182,40 @@
             const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'user' } });
             videoFeed.srcObject = stream;
 
+            // Устанавливаем размер холста
+            videoFeed.onloadedmetadata = () => {
+                debugCanvas.width = videoFeed.videoWidth;
+                debugCanvas.height = videoFeed.videoHeight;
+            };
+
             // Анализ позы
             setInterval(async () => {
                 const pose = await posenetModel.estimateSinglePose(videoFeed, {
                     flipHorizontal: true
                 });
 
-                const isCorrect = comparePoses(pose, referencePose);
+                // Отрисовка скелета
+                drawSkeleton(pose);
 
-                if (isCorrect) {
-                    feedback.textContent = 'Выполняете правильно!';
-                } else {
-                    feedback.textContent = 'Исправьте положение рук или плеч.';
+                // Расчет углов
+                const leftHip = pose.keypoints.find(p => p.part === 'leftHip')?.position;
+                const leftKnee = pose.keypoints.find(p => p.part === 'leftKnee')?.position;
+                const leftAnkle = pose.keypoints.find(p => p.part === 'leftAnkle')?.position;
+
+                const rightHip = pose.keypoints.find(p => p.part === 'rightHip')?.position;
+                const rightKnee = pose.keypoints.find(p => p.part === 'rightKnee')?.position;
+                const rightAnkle = pose.keypoints.find(p => p.part === 'rightAnkle')?.position;
+
+                if (leftHip && leftKnee && leftAnkle) {
+                    const leftKneeAngle = calculateAngle(leftHip, leftKnee, leftAnkle);
+                    console.log('Left Knee Angle:', leftKneeAngle);
+                    feedback.textContent = `Угол в левом колене: ${Math.round(leftKneeAngle)}°`;
+                }
+
+                if (rightHip && rightKnee && rightAnkle) {
+                    const rightKneeAngle = calculateAngle(rightHip, rightKnee, rightAnkle);
+                    console.log('Right Knee Angle:', rightKneeAngle);
+                    feedback.textContent += ` | Угол в правом колене: ${Math.round(rightKneeAngle)}°`;
                 }
             }, 1000); // Обновляем каждую секунду
         }
